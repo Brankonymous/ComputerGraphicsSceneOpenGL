@@ -61,6 +61,8 @@ struct ProgramState {
     glm::vec3 grassPosition = glm::vec3(0.0f);
     glm::vec3 carPosition = glm::vec3(-3.0f, 1.4f, 2.0f);
     glm::vec3 lampPosition = glm::vec3(-20.0f, 0.0f, 0.0f);
+    glm::vec3 lamp2Position = glm::vec3(4.0f, 0.0f, 0.0f);
+    glm::vec3 catPosition = glm::vec3(-160.0f, 50.0f, -223.0f);
     glm::vec3 roadPosition = glm::vec3(0.0f, 0.0f, 0.0f);
     glm::vec3 tablePosition = glm::vec3(5.0f, 1.0f, 4.5f);
     glm::vec3 flowerPosition = glm::vec3(5.0f, 1.1f, 5.5f);
@@ -69,6 +71,8 @@ struct ProgramState {
     float grassScale = 0.05f;
     float carScale = 0.8f;
     float lampScale = 0.2f;
+    float lamp2Scale = 1.2f;
+    float catScale = 0.015f;
     float roadScale = 5.0f;
     float tableScale = 0.006f;
     float flowerScale = 2.0f;
@@ -246,6 +250,8 @@ int main() {
     Model grassModel("resources/objects/grass/10450_Rectangular_Grass_Patch_v1_iterations-2.obj");
     Model carModel("resources/objects/car/S15_bonnet.obj");
     Model lampModel("resources/objects/Street Lamp/StreetLamp.obj");
+    Model lamp2Model("resources/objects/lamp2/source/street-lamp-obj/farola1.obj");
+    Model catModel("resources/objects/cat/source/cat-obj/cat.obj");
     Model tableModel("resources/objects/table/source/table/table.obj");
     Model flowerModel("resources/objects/flower/Scaniverse.obj");
     Model treeModel("resources/objects/coconutTree/coconutTreeBended.obj");
@@ -254,6 +260,8 @@ int main() {
     grassModel.SetShaderTextureNamePrefix("material.");
     carModel.SetShaderTextureNamePrefix("material.");
     lampModel.SetShaderTextureNamePrefix("material.");
+    lamp2Model.SetShaderTextureNamePrefix("material.");
+    catModel.SetShaderTextureNamePrefix("material.");
     tableModel.SetShaderTextureNamePrefix("material.");
     flowerModel.SetShaderTextureNamePrefix("material.");
     treeModel.SetShaderTextureNamePrefix("material.");
@@ -332,6 +340,9 @@ int main() {
 
         glm::mat4 model = glm::mat4(1.0f);
 
+        // make function?
+        // drawModel(scaleVal=programState->grassScale, translationVal=programState->carPosition);
+
         // Grass model
         model = glm::mat4(1.0f);
         model = glm::scale(model, glm::vec3(programState->grassScale));
@@ -352,6 +363,20 @@ int main() {
         model = glm::translate(model, programState->lampPosition);
         ourShader.setMat4("model", model);
         lampModel.Draw(ourShader);
+
+        // Lamp2 model
+        model = glm::mat4(1.0f);
+        model = glm::scale(model, glm::vec3(programState->lamp2Scale));
+        model = glm::translate(model, programState->lamp2Position);
+        ourShader.setMat4("model", model);
+        lamp2Model.Draw(ourShader);
+
+        // Cat model
+        model = glm::mat4(1.0f);
+        model = glm::scale(model, glm::vec3(programState->catScale));
+        model = glm::translate(model, programState->catPosition);
+        ourShader.setMat4("model", model);
+        catModel.Draw(ourShader);
 
         // Table model
         model = glm::mat4(1.0f);
@@ -513,6 +538,8 @@ void DrawImGui(ProgramState *programState) {
         ImGui::ColorEdit3("Background color", (float *) &programState->clearColor);
         ImGui::DragFloat3("Grass position", (float*)&programState->grassPosition);
         ImGui::DragFloat("Grass scale", &programState->grassScale, 0.05, 0.1, 4.0);
+        ImGui::DragFloat3("Lamp2 position", (float*)&programState->lamp2Position);
+        ImGui::DragFloat("Lamp2 scale", &programState->lamp2Scale, 0.05, 0.1, 4.0);
 
         ImGui::DragFloat("pointLight.constant", &programState->pointLight.constant, 0.05, 0.0, 1.0);
         ImGui::DragFloat("pointLight.linear", &programState->pointLight.linear, 0.05, 0.0, 1.0);
