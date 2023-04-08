@@ -59,8 +59,8 @@ struct ProgramState {
     bool CameraMouseMovementUpdateEnabled = true;
     glm::vec3 backpackPosition = glm::vec3(0.0f);
     glm::vec3 grassPosition = glm::vec3(0.0f);
-    glm::vec3 carPosition = glm::vec3(-3.0f, 1.4f, 2.0f);
-    glm::vec3 lampPosition = glm::vec3(-20.0f, 0.0f, 0.0f);
+    glm::vec3 carPosition = glm::vec3(-3.0f, 1.2f, 2.0f);
+    glm::vec3 lampPosition = glm::vec3(-20.0f, 1.0f, 13.0f);
     glm::vec3 lamp2Position = glm::vec3(4.0f, 0.0f, 0.0f);
     glm::vec3 catPosition = glm::vec3(-160.0f, 50.0f, -223.0f);
     glm::vec3 roadPosition = glm::vec3(0.0f, 0.0f, 0.0f);
@@ -85,6 +85,29 @@ struct ProgramState {
     void SaveToFile(std::string filename);
 
     void LoadFromFile(std::string filename);
+
+    glm::vec3 pointLightPositions[3] = {
+            glm::vec3(4.8f, 4.0f, 0.9f),
+            glm::vec3(-2.3f,1.0f,-0.3f),
+            glm::vec3(-3.3f,4.0f,3.2f)
+    };
+
+    glm::vec3 diffuse_plight = glm::vec3(4.5f, 0.0f, -4.5f);
+    glm::vec3 specular_plight = glm::vec3(0.0f,5.0f,5.0f);
+    glm::vec3 ambient_plight = glm::vec3(0.0f, 0.0f, 0.0f);
+    float constant_plight = 1.0f;
+    float linear_plight = 1.0f;
+    float quadratic_plight = 1.0f;
+    float shininess_plight = 32.0f;
+    glm::vec3 direction_slight = glm::vec3(0.0f, -1.0f, 0.0f);
+    glm::vec3 ambient_slight = glm::vec3(0.0f, 0.0f, 0.0f);
+    glm::vec3 diffuse_slight = glm::vec3(0.0f, 3.0f, 3.0f);
+    glm::vec3 specular_slight = glm::vec3(0.0f, 3.0f, 3.0f);
+    float constant_slight = 1.0f;
+    float linear_slight = 1.0f;
+    float quadratic_slight = 1.0f;
+    float cutOff_slight = 1.0f;
+    float outerCutOff_slight = 20.0f;
 };
 
 void ProgramState::SaveToFile(std::string filename) {
@@ -317,17 +340,116 @@ int main() {
 
         // don't forget to enable shader before setting uniforms
         ourShader.use();
-        pointLight.position = glm::vec3(0, 4.0f, 0); // glm::vec3(4.0 * cos(currentFrame), 4.0f, 4.0 * sin(currentFrame));
-        ourShader.setVec3("pointLight.position", pointLight.position);
-        // ourShader.setVec3("pointLight.ambient", pointLight.ambient);
-        ourShader.setVec3("pointLight.ambient", glm::vec3(1.0f, 1.0f, 1.0f));
-        ourShader.setVec3("pointLight.diffuse", pointLight.diffuse);
-        ourShader.setVec3("pointLight.specular", pointLight.specular);
-        ourShader.setFloat("pointLight.constant", pointLight.constant);
-        ourShader.setFloat("pointLight.linear", pointLight.linear);
-        ourShader.setFloat("pointLight.quadratic", pointLight.quadratic);
+
+        // FIRST LIGHT SOURCE -------------------------------------------------------=
+        /*
+        ourShader.setVec3("pointLight[0].position",programState->pointLightPositions[0]);
+        ourShader.setVec3("pointLight[0].ambient", programState->ambient_plight);
+        ourShader.setVec3("pointLight[0].diffuse", programState->diffuse_plight);
+        ourShader.setVec3("pointLight[0].specular", programState->specular_plight);
+        ourShader.setFloat("pointLight[0].constant", programState->constant_plight);
+        ourShader.setFloat("pointLight[0].linear", programState->linear_plight);
+        ourShader.setFloat("pointLight[0].quadratic", programState->quadratic_plight);
+        ourShader.setVec3("viewPosition", programState->camera.Position);
+        ourShader.setFloat("material.shininess", programState->shininess_plight);
+
+        ourShader.setVec3("spotLight[0].position", programState->pointLightPositions[0]);
+        ourShader.setVec3("spotLight[0].direction", programState->direction_slight);
+        ourShader.setVec3("spotLight[0].ambient", programState->ambient_slight);
+        ourShader.setVec3("spotLight[0].diffuse", programState->diffuse_slight);
+        ourShader.setVec3("spotLight[0].specular", programState->specular_slight);
+        ourShader.setFloat("spotLight[0].constant", programState->constant_slight);
+        ourShader.setFloat("spotLight[0].linear", programState->linear_slight);
+        ourShader.setFloat("spotLight[0].quadratic", programState->quadratic_slight);
+        ourShader.setFloat("spotLight[0].cutOff", glm::cos(glm::radians(programState->cutOff_slight)));
+        ourShader.setFloat("spotLight[0].outerCutOff", glm::cos(glm::radians(programState->outerCutOff_slight)));
+
+        lightParams[0].position = glm::vec3(4.8f, 4.0f, 0.9f);
+        lightParams[0].ambient_plight = glm::vec3(0.0f, 4.0f, 10.0f);
+        lightParams[0].diffuse_plight = glm::vec3(0.5f, 0.0f, -2.5f);
+        lightParams[0].specular_plight = glm::vec3(-1.0f, 5.0f, 16.0f);
+        lightParams[0].constant_plight = 1.0f;
+        lightParams[0].linear_plight = 1.0f;
+        lightParams[0].quadratic_plight = 0.2f;
+        lightParams[0].shininess_plight = 32.0f;
+
+        lightParams[0].direction_slight = glm::vec3(0.0f, -1.0f, 0.0f);
+        lightParams[0].ambient_slight = glm::vec3(0.0f, -4.0f, -1.0f);
+        lightParams[0].diffuse_slight = glm::vec3(-1.0f, 0.0f, 1.0f);
+        lightParams[0].specular_slight = glm::vec3(2.0f, 0.0f, 0.0f);
+        lightParams[0].constant_slight = 1.0f;
+        lightParams[0].linear_slight = 1.0f;
+        lightParams[0].quadratic_slight = 0.35f;
+        lightParams[0].cutOff_slight = 1.0f;
+        lightParams[0].outerCutOff_slight = 50.0f;
+
+         */
+
+        ourShader.setVec3("pointLight[0].position", programState->pointLightPositions[0]);
+        ourShader.setVec3("pointLight[0].ambient", glm::vec3(0.0f, 4.0f, 10.0f));
+        ourShader.setVec3("pointLight[0].diffuse", glm::vec3(0.5f, 0.0f, -2.5f));
+        ourShader.setVec3("pointLight[0].specular", glm::vec3(-1.0f, 5.0f, 16.0f));
+        ourShader.setFloat("pointLight[0].constant", 1.0f);
+        ourShader.setFloat("pointLight[0].linear", 1.0f);
+        ourShader.setFloat("pointLight[0].quadratic", 0.2f);
         ourShader.setVec3("viewPosition", programState->camera.Position);
         ourShader.setFloat("material.shininess", 32.0f);
+
+        ourShader.setVec3("spotLight[0].position", programState->pointLightPositions[0]);
+        ourShader.setVec3("spotLight[0].direction", glm::vec3(0.0f, -1.0f, 0.0f));
+        ourShader.setVec3("spotLight[0].ambient", glm::vec3(0.0f, -4.0f, -1.0f));
+        ourShader.setVec3("spotLight[0].diffuse", glm::vec3(-1.0f, 0.0f, 1.0f));
+        ourShader.setVec3("spotLight[0].specular", glm::vec3(2.0f, 0.0f, 0.0f));
+        ourShader.setFloat("spotLight[0].constant", 1.0f);
+        ourShader.setFloat("spotLight[0].linear", 1.0f);
+        ourShader.setFloat("spotLight[0].quadratic", 0.35f);
+        ourShader.setFloat("spotLight[0].cutOff", glm::cos(glm::radians(1.0f)));
+        ourShader.setFloat("spotLight[0].outerCutOff", glm::cos(glm::radians(50.0f)));
+
+        //SECOND LIGHT SOURCE -------------------------
+        ourShader.setVec3("pointLight[1].position", programState->pointLightPositions[1]);
+        ourShader.setVec3("pointLight[1].ambient", glm::vec3(2.0f, 2.0f, -2.0f));
+        ourShader.setVec3("pointLight[1].diffuse", glm::vec3(5.5f, 3.0f, -14.5f));
+        ourShader.setVec3("pointLight[1].specular", glm::vec3(21.0f, 0.0f, 0.0f));
+        ourShader.setFloat("pointLight[1].constant", 2.4f);
+        ourShader.setFloat("pointLight[1].linear", 0.75f);
+        ourShader.setFloat("pointLight[1].quadratic", 0.7f);
+        ourShader.setVec3("viewPosition", programState->camera.Position);
+        ourShader.setFloat("material.shininess", 32.0f);
+
+        ourShader.setVec3("spotLight[1].position", programState->pointLightPositions[1]);
+        ourShader.setVec3("spotLight[1].direction", glm::vec3(0.0f, 0.0f, 1.0f));
+        ourShader.setVec3("spotLight[1].ambient", glm::vec3(10.0f, -1.0f, 2.0f));
+        ourShader.setVec3("spotLight[1].diffuse", glm::vec3(34.0f, 4.0f, 12.0f));
+        ourShader.setVec3("spotLight[1].specular", glm::vec3(-6.0f, 15.0f, 9.0f));
+        ourShader.setFloat("spotLight[1].constant", 2.7f);
+        ourShader.setFloat("spotLight[1].linear", 0.0f);
+        ourShader.setFloat("spotLight[1].quadratic", 5.1f);
+        ourShader.setFloat("spotLight[1].cutOff", glm::cos(glm::radians(0.750f)));
+        ourShader.setFloat("spotLight[1].outerCutOff", glm::cos(glm::radians(90.0f)));
+
+        //THIRD LIGHT SOURCE------------------------------------------
+        ourShader.setVec3("pointLight[2].position",programState->pointLightPositions[2]);
+        ourShader.setVec3("pointLight[2].ambient", glm::vec3(22.0f, -48.0f, 0.0f));
+        ourShader.setVec3("pointLight[2].diffuse", glm::vec3(0.0f, 10.0f, -2.0f));
+        ourShader.setVec3("pointLight[2].specular", glm::vec3(41.0f, 4.0f, -22.0f));
+        ourShader.setFloat("pointLight[2].constant", 0.9f);
+        ourShader.setFloat("pointLight[2].linear", 1.6f);
+        ourShader.setFloat("pointLight[2].quadratic", 2.5f);
+        ourShader.setVec3("viewPosition", programState->camera.Position);
+        ourShader.setFloat("material.shininess", 32.0f);
+
+        ourShader.setVec3("spotLight[2].position", programState->pointLightPositions[2]);
+        ourShader.setVec3("spotLight[2].direction", glm::vec3(0.0f, -1.0f, 0.0f));
+        ourShader.setVec3("spotLight[2].ambient", glm::vec3(9.0f, 1.0f, 0.0f));
+        ourShader.setVec3("spotLight[2].diffuse", glm::vec3(25.0f, 36.0f, -5.0f));
+        ourShader.setVec3("spotLight[2].specular", glm::vec3(2.0f, 1.0f, -5.0f));
+        ourShader.setFloat("spotLight[2].constant", 0.5f);
+        ourShader.setFloat("spotLight[2].linear", 0.65f);
+        ourShader.setFloat("spotLight[2].quadratic", 0.2f);
+        ourShader.setFloat("spotLight[2].cutOff", glm::cos(glm::radians(1.0f)));
+        ourShader.setFloat("spotLight[2].outerCutOff", glm::cos(glm::radians(40.0f)));
+
         // view/projection transformations
         glm::mat4 projection = glm::perspective(glm::radians(programState->camera.Zoom),
                                                 (float) SCR_WIDTH / (float) SCR_HEIGHT, 0.1f, 100.0f);
@@ -336,7 +458,6 @@ int main() {
         ourShader.setMat4("view", view);
 
         // Render the loaded models //
-
 
         glm::mat4 model = glm::mat4(1.0f);
 
@@ -536,14 +657,27 @@ void DrawImGui(ProgramState *programState) {
         ImGui::Text("Hello text");
         ImGui::SliderFloat("Float slider", &f, 0.0, 1.0);
         ImGui::ColorEdit3("Background color", (float *) &programState->clearColor);
-        ImGui::DragFloat3("Grass position", (float*)&programState->grassPosition);
-        ImGui::DragFloat("Grass scale", &programState->grassScale, 0.05, 0.1, 4.0);
-        ImGui::DragFloat3("Lamp2 position", (float*)&programState->lamp2Position);
-        ImGui::DragFloat("Lamp2 scale", &programState->lamp2Scale, 0.05, 0.1, 4.0);
 
-        ImGui::DragFloat("pointLight.constant", &programState->pointLight.constant, 0.05, 0.0, 1.0);
-        ImGui::DragFloat("pointLight.linear", &programState->pointLight.linear, 0.05, 0.0, 1.0);
-        ImGui::DragFloat("pointLight.quadratic", &programState->pointLight.quadratic, 0.05, 0.0, 1.0);
+        ImGui::DragFloat3("lightParams[1].position", (float*)&programState->pointLightPositions[2]);
+
+        ImGui::DragFloat3("lightParams[1].ambient_plight", (float*)&programState->ambient_plight);
+        ImGui::DragFloat3("lightParams[1].diffuse_plight", (float*)&programState->diffuse_plight);
+        ImGui::DragFloat3("lightParams[1].specular_plight", (float*)&programState->specular_plight);
+        ImGui::DragFloat("lightParams[1].constant_plight", &programState->constant_plight, 0.05, 0.0, 10.0);
+        ImGui::DragFloat("lightParams[1].linear_plight", &programState->linear_plight, 0.05, 0.0, 10.0);
+        ImGui::DragFloat("programState->quadratic_plight", &programState->quadratic_plight, 0.05, 0.0, 10.0);
+        ImGui::DragFloat("material.shininess", &programState->shininess_plight, 0.05, 0.0, 100.0);
+
+        ImGui::DragFloat3("lightParams[1].direction", (float*)&programState->direction_slight);
+        ImGui::DragFloat3("lightParams[1].ambient_slight", (float*)&programState->ambient_slight);
+        ImGui::DragFloat3("lightParams[1].diffuse_slight", (float*)&programState->diffuse_slight);
+        ImGui::DragFloat3("lightParams[1].specular_slight", (float*)&programState->specular_slight);
+        ImGui::DragFloat("lightParams[1].constant_slight", &programState->constant_slight, 0.05, 0.0, 10.0);
+        ImGui::DragFloat("lightParams[1].linear_slight", &programState->linear_slight, 0.05, 0.0, 10.0);
+        ImGui::DragFloat("lightParams[1].quadratic_slight", &programState->quadratic_slight, 0.05, 0.0, 10.0);
+        ImGui::DragFloat("lightParams[1].cutOff_slight", &programState->cutOff_slight, 0.05, 0.0, 360.0);
+        ImGui::DragFloat("lightParams[1].outerCutOff_slight", &programState->outerCutOff_slight, 0.05, 0.0, 360.0);
+
         ImGui::End();
     }
 
