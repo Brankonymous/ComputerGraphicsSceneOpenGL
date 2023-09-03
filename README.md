@@ -10,9 +10,6 @@ Project for Computer Graphics course
 - Group B: Point Shadows
 - Additional: HDR and Bloom (_Not working currently - logic commented in src/main.cpp_)
 
-# Setup Instructions
-Clone repository and run src/main.cpp
-
 # Controls
 - Move: (in comparison to camera): **WASD**
 - Move: (in comparison to world coordinates): **TGHF**
