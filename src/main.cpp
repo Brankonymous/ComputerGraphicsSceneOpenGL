@@ -31,6 +31,7 @@ unsigned int loadCubemap(vector<std::string> faces);
 // settings
 const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
+float exposure = 1.0;
 
 // camera
 float lastX = SCR_WIDTH / 2.0f;
@@ -67,6 +68,7 @@ struct ProgramState {
     glm::vec3 tablePosition = glm::vec3(5.0f, 1.0f, 4.5f);
     glm::vec3 flowerPosition = glm::vec3(5.0f, 1.1f, 5.5f);
     glm::vec3 treePosition = glm::vec3(4.5f, 0.0f, -4.5f);
+    glm::vec3 doorPosition = glm::vec3(3.5f, 0.0f, -4.5f);
 
     float grassScale = 0.05f;
     float carScale = 0.8f;
@@ -77,6 +79,7 @@ struct ProgramState {
     float tableScale = 0.006f;
     float flowerScale = 2.0f;
     float treeScale = 0.008f;
+    float doorScale = 0.05f;
 
     PointLight pointLight;
     ProgramState()
@@ -109,6 +112,8 @@ struct ProgramState {
     float cutOff_slight = 1.0f;
     float outerCutOff_slight = 20.0f;
 };
+
+void renderScene(Shader &shader, vector<Model> &models);
 
 void ProgramState::SaveToFile(std::string filename) {
     std::ofstream out(filename);
@@ -201,15 +206,20 @@ int main() {
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_TEXTURE_2D);
 
-    // Enable Culling Face
-    // glEnable(GL_CULL_FACE);
-    // glCullFace(GL_FRONT);
-    // glFrontFace(GL_CW);
+    // enable blending and culling face
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_FRONT);
+    glFrontFace(GL_CW);
 
     // build and compile shaders
     // -------------------------
-    Shader ourShader("resources/shaders/2.model_lighting.vs", "resources/shaders/2.model_lighting.fs");
+    Shader ourShader("resources/shaders/advanced_lightning.vs", "resources/shaders/advanced_lightning.fs");
     Shader skyboxShader("resources/shaders/skybox.vs","resources/shaders/skybox.fs");
+    Shader shadowShader("resources/shaders/shadows.vs", "resources/shaders/shadows.fs", "resources/shaders/shadows.geom");
+    Shader blurShader("resources/shaders/blur.vs", "resources/shaders/blur.fs");
+    Shader bloomShader("resources/shaders/bloom.vs", "resources/shaders/bloom.fs");
 
     float skyboxVertices[] = {
             // positions
@@ -256,30 +266,38 @@ int main() {
             1.0f, -1.0f,  1.0f
     };
 
+    float quadVertices[] = {
+            // positions        // texture Coords
+            -1.0f,  1.0f, 0.0f, 0.0f, 1.0f,
+            -1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
+            1.0f,  1.0f, 0.0f, 1.0f, 1.0f,
+            1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
+    };
+
     vector<std::string> skyboxImages =
             {
                     "resources/objects/skybox/right.jpg",
                     "resources/objects/skybox/left.jpg",
-                    "resources/objects/skybox/top.jpg",
                     "resources/objects/skybox/bottom.jpg",
-                    "resources/objects/skybox/front.jpg",
+                    "resources/objects/skybox/top.jpg",
+                    "resources/objects/skybox/front.jpg",ds
                     "resources/objects/skybox/back.jpg"
             };
     unsigned int cubemapTexture = loadCubemap(skyboxImages);
 
     // load models
     // -----------
-    Model ourModel("resources/objects/backpack/backpack.obj");
-    Model grassModel("resources/objects/grass/10450_Rectangular_Grass_Patch_v1_iterations-2.obj");
-    Model carModel("resources/objects/car/S15_bonnet.obj");
-    Model lampModel("resources/objects/Street Lamp/StreetLamp.obj");
-    Model lamp2Model("resources/objects/lamp2/source/street-lamp-obj/farola1.obj");
-    Model catModel("resources/objects/cat/source/cat-obj/cat.obj");
-    Model tableModel("resources/objects/table/source/table/table.obj");
-    Model flowerModel("resources/objects/flower/Scaniverse.obj");
-    Model treeModel("resources/objects/coconutTree/coconutTreeBended.obj");
+    vector<Model> models;
+    Model grassModel("resources/objects/grass/10450_Rectangular_Grass_Patch_v1_iterations-2.obj"); models.push_back(grassModel);
+    Model carModel("resources/objects/car/S15_bonnet.obj"); models.push_back(carModel);
+    Model lampModel("resources/objects/Street Lamp/StreetLamp.obj"); models.push_back(lampModel);
+    Model lamp2Model("resources/objects/lamp2/source/street-lamp-obj/farola1.obj"); models.push_back(lamp2Model);
+    Model catModel("resources/objects/cat/source/cat-obj/cat.obj"); models.push_back(catModel);
+    Model tableModel("resources/objects/table/source/table/table.obj"); models.push_back(tableModel);
+    Model flowerModel("resources/objects/flower/Scaniverse.obj"); models.push_back(flowerModel);
+    Model treeModel("resources/objects/coconutTree/coconutTreeBended.obj"); models.push_back(treeModel);
+    Model doorModel("resources/objects/glassdoor/Glass Door.obj"); models.push_back(doorModel);
 
-    ourModel.SetShaderTextureNamePrefix("material.");
     grassModel.SetShaderTextureNamePrefix("material.");
     carModel.SetShaderTextureNamePrefix("material.");
     lampModel.SetShaderTextureNamePrefix("material.");
@@ -288,6 +306,7 @@ int main() {
     tableModel.SetShaderTextureNamePrefix("material.");
     flowerModel.SetShaderTextureNamePrefix("material.");
     treeModel.SetShaderTextureNamePrefix("material.");
+    doorModel.SetShaderTextureNamePrefix("material.");
 
     PointLight& pointLight = programState->pointLight;
     pointLight.position = glm::vec3(-4.0f,2.7f,-1.6f);
@@ -300,6 +319,99 @@ int main() {
 
     glm::vec3 ambient(0,0,0);
 
+    /* BLOOM AND HDR IMPLEMENTATION - NOT WORKING
+    // ---------------------- code copied from learnopengl ----------------------- //
+    // configure (floating point) framebuffers
+    // ---------------------------------------
+    unsigned int hdrFBO;
+    glGenFramebuffers(1, &hdrFBO);
+    glBindFramebuffer(GL_FRAMEBUFFER, hdrFBO);
+    // create 2 floating point color buffers (1 for normal rendering, other for brightness threshold values)
+    unsigned int colorBuffers[2];
+    glGenTextures(2, colorBuffers);
+    for (unsigned int i = 0; i < 2; i++)
+    {
+        glBindTexture(GL_TEXTURE_2D, colorBuffers[i]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);  // we clamp to the edge as the blur filter would otherwise sample repeated texture values!
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        // attach texture to framebuffer
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i, GL_TEXTURE_2D, colorBuffers[i], 0);
+    }
+    // create and attach depth buffer (renderbuffer)
+    unsigned int rboDepth;
+    glGenRenderbuffers(1, &rboDepth);
+    glBindRenderbuffer(GL_RENDERBUFFER, rboDepth);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, SCR_WIDTH, SCR_HEIGHT);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, rboDepth);
+    // tell OpenGL which color attachments we'll use (of this framebuffer) for rendering
+    unsigned int attachments[2] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
+    glDrawBuffers(2, attachments);
+    // finally check if framebuffer is complete
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        std::cout << "Framebuffer not complete!" << std::endl;
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    // ping-pong-framebuffer for blurring
+    unsigned int pingpongFBO[2];
+    unsigned int pingpongColorbuffers[2];
+    glGenFramebuffers(2, pingpongFBO);
+    glGenTextures(2, pingpongColorbuffers);
+    for (unsigned int i = 0; i < 2; i++)
+    {
+        glBindFramebuffer(GL_FRAMEBUFFER, pingpongFBO[i]);
+        glBindTexture(GL_TEXTURE_2D, pingpongColorbuffers[i]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); // we clamp to the edge as the blur filter would otherwise sample repeated texture values!
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, pingpongColorbuffers[i], 0);
+        // also check if framebuffers are complete (no need for depth buffer)
+        if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+            std::cout << "Framebuffer not complete!" << std::endl;
+    }
+    // ---------------------- code copied from learnopengl ----------------------- //
+
+    // setup quad VAO
+    unsigned int quadVAO, quadVBO;
+    glGenVertexArrays(1, &quadVAO);
+    glGenBuffers(1, &quadVBO);
+    glBindVertexArray(quadVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+     */
+
+    // configure depth map FBO
+    // -----------------------
+    const unsigned int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
+    unsigned int depthMapFBO;
+    glGenFramebuffers(1, &depthMapFBO);
+    // create depth cubemap texture
+    unsigned int depthCubemap;
+    glGenTextures(1, &depthCubemap);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, depthCubemap);
+    for (unsigned int i = 0; i < 6; ++i)
+        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_DEPTH_COMPONENT, SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    // attach depth texture as FBO's depth buffer
+    glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depthCubemap, 0);
+    glDrawBuffer(GL_NONE);
+    glReadBuffer(GL_NONE);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+
     // SkyBox VAO
     unsigned int skyboxVAO, skyboxVBO;
     glGenVertexArrays(1, &skyboxVAO);
@@ -310,18 +422,11 @@ int main() {
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
 
-
-    // draw in wireframe
-    // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-    glEnable(GL_CULL_FACE);
-
     // render loop
     // -----------
     while (!glfwWindowShouldClose(window)) {
+        glm::mat4 model = glm::mat4(1.0f);
+
         // per-frame time logic
         // --------------------
         float currentFrame = glfwGetTime();
@@ -340,51 +445,9 @@ int main() {
 
         // don't forget to enable shader before setting uniforms
         ourShader.use();
+        ourShader.setVec3("cameraPos", programState->camera.Position);
 
         // FIRST LIGHT SOURCE -------------------------------------------------------=
-        /*
-        ourShader.setVec3("pointLight[0].position",programState->pointLightPositions[0]);
-        ourShader.setVec3("pointLight[0].ambient", programState->ambient_plight);
-        ourShader.setVec3("pointLight[0].diffuse", programState->diffuse_plight);
-        ourShader.setVec3("pointLight[0].specular", programState->specular_plight);
-        ourShader.setFloat("pointLight[0].constant", programState->constant_plight);
-        ourShader.setFloat("pointLight[0].linear", programState->linear_plight);
-        ourShader.setFloat("pointLight[0].quadratic", programState->quadratic_plight);
-        ourShader.setVec3("viewPosition", programState->camera.Position);
-        ourShader.setFloat("material.shininess", programState->shininess_plight);
-
-        ourShader.setVec3("spotLight[0].position", programState->pointLightPositions[0]);
-        ourShader.setVec3("spotLight[0].direction", programState->direction_slight);
-        ourShader.setVec3("spotLight[0].ambient", programState->ambient_slight);
-        ourShader.setVec3("spotLight[0].diffuse", programState->diffuse_slight);
-        ourShader.setVec3("spotLight[0].specular", programState->specular_slight);
-        ourShader.setFloat("spotLight[0].constant", programState->constant_slight);
-        ourShader.setFloat("spotLight[0].linear", programState->linear_slight);
-        ourShader.setFloat("spotLight[0].quadratic", programState->quadratic_slight);
-        ourShader.setFloat("spotLight[0].cutOff", glm::cos(glm::radians(programState->cutOff_slight)));
-        ourShader.setFloat("spotLight[0].outerCutOff", glm::cos(glm::radians(programState->outerCutOff_slight)));
-
-        lightParams[0].position = glm::vec3(4.8f, 4.0f, 0.9f);
-        lightParams[0].ambient_plight = glm::vec3(0.0f, 4.0f, 10.0f);
-        lightParams[0].diffuse_plight = glm::vec3(0.5f, 0.0f, -2.5f);
-        lightParams[0].specular_plight = glm::vec3(-1.0f, 5.0f, 16.0f);
-        lightParams[0].constant_plight = 1.0f;
-        lightParams[0].linear_plight = 1.0f;
-        lightParams[0].quadratic_plight = 0.2f;
-        lightParams[0].shininess_plight = 32.0f;
-
-        lightParams[0].direction_slight = glm::vec3(0.0f, -1.0f, 0.0f);
-        lightParams[0].ambient_slight = glm::vec3(0.0f, -4.0f, -1.0f);
-        lightParams[0].diffuse_slight = glm::vec3(-1.0f, 0.0f, 1.0f);
-        lightParams[0].specular_slight = glm::vec3(2.0f, 0.0f, 0.0f);
-        lightParams[0].constant_slight = 1.0f;
-        lightParams[0].linear_slight = 1.0f;
-        lightParams[0].quadratic_slight = 0.35f;
-        lightParams[0].cutOff_slight = 1.0f;
-        lightParams[0].outerCutOff_slight = 50.0f;
-
-         */
-
         ourShader.setVec3("pointLight[0].position", programState->pointLightPositions[0]);
         ourShader.setVec3("pointLight[0].ambient", glm::vec3(0.0f, 4.0f, 10.0f));
         ourShader.setVec3("pointLight[0].diffuse", glm::vec3(0.5f, 0.0f, -2.5f));
@@ -429,7 +492,7 @@ int main() {
         ourShader.setFloat("spotLight[1].outerCutOff", glm::cos(glm::radians(90.0f)));
 
         //THIRD LIGHT SOURCE------------------------------------------
-        ourShader.setVec3("pointLight[2].position",programState->pointLightPositions[2]);
+        ourShader.setVec3("pointLight[2].position", programState->pointLightPositions[2]);
         ourShader.setVec3("pointLight[2].ambient", glm::vec3(22.0f, -48.0f, 0.0f));
         ourShader.setVec3("pointLight[2].diffuse", glm::vec3(0.0f, 10.0f, -2.0f));
         ourShader.setVec3("pointLight[2].specular", glm::vec3(41.0f, 4.0f, -22.0f));
@@ -450,6 +513,40 @@ int main() {
         ourShader.setFloat("spotLight[2].cutOff", glm::cos(glm::radians(1.0f)));
         ourShader.setFloat("spotLight[2].outerCutOff", glm::cos(glm::radians(40.0f)));
 
+        float near_plane = 1.0f;
+        float far_plane  = 25.0f;
+
+        /*
+        shadowShader.use();
+        glm::mat4 shadowProj = glm::perspective(glm::radians(90.0f), (float)SHADOW_WIDTH / (float)SHADOW_HEIGHT, near_plane, far_plane);
+        std::vector<glm::mat4> shadowTransforms;
+        for (int i = 0; i < 3; i++) {
+            // 0. create depth cube map transformation matrices
+            // ------------------------------------------------
+            shadowTransforms.clear();
+            shadowTransforms.push_back(shadowProj * glm::lookAt(programState->pointLightPositions[i], programState->pointLightPositions[i] + glm::vec3( 1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)));
+            shadowTransforms.push_back(shadowProj * glm::lookAt(programState->pointLightPositions[i], programState->pointLightPositions[i] + glm::vec3(-1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)));
+            shadowTransforms.push_back(shadowProj * glm::lookAt(programState->pointLightPositions[i], programState->pointLightPositions[i] + glm::vec3( 0.0f,  1.0f,  0.0f), glm::vec3(0.0f,  0.0f,  1.0f)));
+            shadowTransforms.push_back(shadowProj * glm::lookAt(programState->pointLightPositions[i], programState->pointLightPositions[i] + glm::vec3( 0.0f, -1.0f,  0.0f), glm::vec3(0.0f,  0.0f, -1.0f)));
+            shadowTransforms.push_back(shadowProj * glm::lookAt(programState->pointLightPositions[i], programState->pointLightPositions[i] + glm::vec3( 0.0f,  0.0f,  1.0f), glm::vec3(0.0f, -1.0f,  0.0f)));
+            shadowTransforms.push_back(shadowProj * glm::lookAt(programState->pointLightPositions[i], programState->pointLightPositions[i] + glm::vec3( 0.0f,  0.0f, -1.0f), glm::vec3(0.0f, -1.0f,  0.0f)));
+
+            // Render scene to depth cube map
+            // ---------------------------------
+            glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
+            glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+            glClear(GL_DEPTH_BUFFER_BIT);
+            for (unsigned int i = 0; i < 6; ++i)
+                shadowShader.setMat4("shadowMatrices[" + std::to_string(i) + "]", shadowTransforms[i]);
+            shadowShader.setFloat("far_plane", far_plane);
+            shadowShader.setVec3("lightPos", programState->pointLightPositions[i]);
+            renderScene(shadowShader, models);
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        }
+         */
+
+        ourShader.use();
+
         // view/projection transformations
         glm::mat4 projection = glm::perspective(glm::radians(programState->camera.Zoom),
                                                 (float) SCR_WIDTH / (float) SCR_HEIGHT, 0.1f, 100.0f);
@@ -457,70 +554,18 @@ int main() {
         ourShader.setMat4("projection", projection);
         ourShader.setMat4("view", view);
 
+        // set depthMaps
+        glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        ourShader.use();
+        ourShader.setFloat("far_plane", far_plane);
+        ourShader.setInt("depthMap", 1);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, depthCubemap);
+
         // Render the loaded models //
-
-        glm::mat4 model = glm::mat4(1.0f);
-
-        // make function?
-        // drawModel(scaleVal=programState->grassScale, translationVal=programState->carPosition);
-
-        // Grass model
-        model = glm::mat4(1.0f);
-        model = glm::scale(model, glm::vec3(programState->grassScale));
-        model = glm::rotate(model, glm::radians(90.f), glm::vec3(-1.0, 0.0, 0.0));
-        ourShader.setMat4("model", model);
-        grassModel.Draw(ourShader);
-
-        // Car model
-        model = glm::mat4(1.0f);
-        model = glm::scale(model, glm::vec3(programState->carScale));
-        model = glm::translate(model, programState->carPosition);
-        ourShader.setMat4("model", model);
-        carModel.Draw(ourShader);
-
-        // Lamp model
-        model = glm::mat4(1.0f);
-        model = glm::scale(model, glm::vec3(programState->lampScale));
-        model = glm::translate(model, programState->lampPosition);
-        ourShader.setMat4("model", model);
-        lampModel.Draw(ourShader);
-
-        // Lamp2 model
-        model = glm::mat4(1.0f);
-        model = glm::scale(model, glm::vec3(programState->lamp2Scale));
-        model = glm::translate(model, programState->lamp2Position);
-        ourShader.setMat4("model", model);
-        lamp2Model.Draw(ourShader);
-
-        // Cat model
-        model = glm::mat4(1.0f);
-        model = glm::scale(model, glm::vec3(programState->catScale));
-        model = glm::translate(model, programState->catPosition);
-        ourShader.setMat4("model", model);
-        catModel.Draw(ourShader);
-
-        // Table model
-        model = glm::mat4(1.0f);
-        model = glm::translate(model, programState->tablePosition);
-        model = glm::scale(model, glm::vec3(programState->tableScale));
-        ourShader.setMat4("model", model);
-        tableModel.Draw(ourShader);
-
-        // Flower model
-        model = glm::mat4(1.0f);
-        model = glm::translate(model, programState->flowerPosition);
-        model = glm::scale(model, glm::vec3(programState->flowerScale));
-        ourShader.setMat4("model", model);
-        flowerModel.Draw(ourShader);
-
-        // Tree model
-        model = glm::mat4(1.0f);
-        model = glm::translate(model, programState->treePosition);
-        model = glm::scale(model, glm::vec3(programState->treeScale));
-        ourShader.setMat4("model", model);
-        treeModel.Draw(ourShader);
-
-
+        renderScene(ourShader, models);
+        
         // Draw Skybox
         glDepthFunc(GL_LEQUAL);
         skyboxShader.use();
@@ -535,6 +580,42 @@ int main() {
         glBindVertexArray(0);
         glDepthFunc(GL_LESS);
 
+        /* BLOOM AND HDR IMPLEMENTATION - NOT WORKING
+        // 2. blur bright fragments with two-pass Gaussian Blur
+        // --------------------------------------------------
+        bool horizontal = true, first_iteration = true;
+        unsigned int amount = 10;
+        blurShader.use();
+        for (unsigned int i = 0; i < amount; i++)
+        {
+            glBindFramebuffer(GL_FRAMEBUFFER, pingpongFBO[horizontal]);
+            blurShader.setInt("horizontal", horizontal);
+            glBindTexture(GL_TEXTURE_2D, first_iteration ? colorBuffers[1] : pingpongColorbuffers[!horizontal]);  // bind texture of other framebuffer (or scene if first iteration)
+            glBindVertexArray(quadVAO);
+            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+            glBindVertexArray(0);
+            horizontal = !horizontal;
+            if (first_iteration)
+                first_iteration = false;
+        }
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+        // 3. now render floating point color buffer to 2D quad and tonemap HDR colors to default framebuffer's (clamped) color range
+        // --------------------------------------------------------------------------------------------------------------------------
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        bloomShader.use();
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, colorBuffers[0]);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, pingpongColorbuffers[!horizontal]);
+        bloomShader.setInt("bloom", true);
+        bloomShader.setFloat("exposure", exposure);
+        glBindVertexArray(quadVAO);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        glBindVertexArray(0);
+        cout << "exposure: " << exposure << endl;
+         */
+        
         if (programState->ImGuiEnabled)
             DrawImGui(programState);
 
@@ -551,6 +632,13 @@ int main() {
     ImGui::DestroyContext();
     // glfw: terminate, clearing all previously allocated GLFW resources.
     // ------------------------------------------------------------------
+
+    // deallocate
+    glDeleteVertexArrays(1, &skyboxVAO);
+    // glDeleteVertexArrays(1, &quadVAO);
+    glDeleteBuffers(1, &skyboxVBO);
+    // glDeleteBuffers(1, &quadVBO);
+
     glfwTerminate();
     return 0;
 }
@@ -587,6 +675,66 @@ unsigned int loadCubemap(vector<std::string> faces)
     return textureID;
 }
 
+void renderScene(Shader &shader, vector<Model> &models) {
+    // Render the loaded models //
+    glm::mat4 model = glm::mat4(1.0f);
+
+    // Grass model
+    model = glm::mat4(1.0f);
+    model = glm::scale(model, glm::vec3(programState->grassScale));
+    model = glm::rotate(model, glm::radians(90.f), glm::vec3(-1.0, 0.0, 0.0));
+    shader.setMat4("model", model);
+    models[0].Draw(shader);
+
+    // Car model
+    model = glm::mat4(1.0f);
+    model = glm::scale(model, glm::vec3(programState->carScale));
+    model = glm::translate(model, programState->carPosition);
+    shader.setMat4("model", model);
+    models[1].Draw(shader);
+
+    // Lamp model
+    model = glm::mat4(1.0f);
+    model = glm::scale(model, glm::vec3(programState->lampScale));
+    model = glm::translate(model, programState->lampPosition);
+    shader.setMat4("model", model);
+    models[2].Draw(shader);
+
+    // Lamp2 model
+    model = glm::mat4(1.0f);
+    model = glm::scale(model, glm::vec3(programState->lamp2Scale));
+    model = glm::translate(model, programState->lamp2Position);
+    shader.setMat4("model", model);
+    models[3].Draw(shader);
+
+    // Cat model
+    model = glm::mat4(1.0f);
+    model = glm::scale(model, glm::vec3(programState->catScale));
+    model = glm::translate(model, programState->catPosition);
+    shader.setMat4("model", model);
+    models[4].Draw(shader);
+
+    // Table model
+    model = glm::mat4(1.0f);
+    model = glm::translate(model, programState->tablePosition);
+    model = glm::scale(model, glm::vec3(programState->tableScale));
+    shader.setMat4("model", model);
+    models[5].Draw(shader);
+
+    // Flower model
+    model = glm::mat4(1.0f);
+    model = glm::translate(model, programState->flowerPosition);
+    model = glm::scale(model, glm::vec3(programState->flowerScale));
+    shader.setMat4("model", model);
+    models[6].Draw(shader);
+
+    // Tree model
+    model = glm::mat4(1.0f);
+    model = glm::translate(model, programState->treePosition);
+    model = glm::scale(model, glm::vec3(programState->treeScale));
+    shader.setMat4("model", model);
+    models[7].Draw(shader);
+}
 
 // process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
 // ---------------------------------------------------------------------------------------------------------
@@ -610,6 +758,11 @@ void processInput(GLFWwindow *window) {
         programState->camera.ProcessKeyboard(KEY_RIGHT, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS)
         programState->camera.ProcessKeyboard(KEY_LEFT, deltaTime);
+
+    if (glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS)
+        exposure = max(0.0, exposure-0.1);
+    if (glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS)
+        exposure = min(1.0, exposure+0.1);
 }
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
