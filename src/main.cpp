@@ -28,11 +28,12 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
 
 unsigned int loadCubemap(vector<std::string> faces);
 
+bool SHADOW_FLAG = true;
+
 // settings
 const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
 float exposure = 1.0;
-bool shadows = true;
 
 // camera
 float lastX = SCR_WIDTH / 2.0f;
@@ -517,7 +518,7 @@ int main() {
         float near_plane = 1.0f;
         float far_plane  = 10.0f;
 
-        if (shadows) {
+        if (SHADOW_FLAG) {
             glm::mat4 shadowProj = glm::perspective(glm::radians(90.0f), (float) SHADOW_WIDTH / (float) SHADOW_HEIGHT,
                                                     near_plane, far_plane);
             std::vector<glm::mat4> shadowTransforms;
@@ -580,7 +581,7 @@ int main() {
         ourShader.use();
         ourShader.setFloat("far_plane", far_plane);
         ourShader.setInt("depthMap", 1);
-        ourShader.setBool("shadow_flag", shadows);
+        ourShader.setBool("shadow_flag", SHADOW_FLAG);
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_CUBE_MAP, depthCubemap);
 
@@ -656,8 +657,8 @@ int main() {
 
     // deallocate
     glDeleteVertexArrays(1, &skyboxVAO);
-    // glDeleteVertexArrays(1, &quadVAO);
     glDeleteBuffers(1, &skyboxVBO);
+    // glDeleteVertexArrays(1, &quadVAO);
     // glDeleteBuffers(1, &quadVBO);
 
     glfwTerminate();
@@ -786,7 +787,7 @@ void processInput(GLFWwindow *window) {
         exposure = min(1.0, exposure+0.1);
 
     if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS)
-        shadows = !shadows;
+        SHADOW_FLAG = !SHADOW_FLAG;
 }
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
@@ -830,7 +831,7 @@ void DrawImGui(ProgramState *programState) {
 
     {
         static float f = 0.0f;
-        ImGui::Begin("Hello window");
+        ImGui::Begin("Debug params");
         ImGui::Text("Hello text");
         ImGui::SliderFloat("Float slider", &f, 0.0, 1.0);
         ImGui::ColorEdit3("Background color", (float *) &programState->clearColor);
