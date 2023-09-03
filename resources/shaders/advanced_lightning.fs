@@ -141,7 +141,7 @@ void main()
             spotLightShadow = CalcShadow(FragPos, i, spotLight[i].position);
         }
         vec3 pointLightColor = CalcPointLight(pointLight[i], normal, FragPos, viewDir, pointLightShadow);
-        vec3 spotLightColor = CalcSpotLight(spotLight[i],normal,FragPos,viewDir, spotLightShadow);
+        vec3 spotLightColor = CalcSpotLight(spotLight[i],normal,FragPos,viewDir, 1.0);
 
         result += pointLightColor;
         result += spotLightColor;

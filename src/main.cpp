@@ -522,7 +522,7 @@ int main() {
             glm::mat4 shadowProj = glm::perspective(glm::radians(90.0f), (float) SHADOW_WIDTH / (float) SHADOW_HEIGHT,
                                                     near_plane, far_plane);
             std::vector<glm::mat4> shadowTransforms;
-            for (int i = 0; i < 3; i++) {
+            for (int i = 1; i < 2; i++) {
                 // 0. create depth cube map transformation matrices
                 // ------------------------------------------------
                 shadowTransforms.clear();
