@@ -32,6 +32,7 @@ unsigned int loadCubemap(vector<std::string> faces);
 const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
 float exposure = 1.0;
+bool shadows = true;
 
 // camera
 float lastX = SCR_WIDTH / 2.0f;
@@ -280,7 +281,7 @@ int main() {
                     "resources/objects/skybox/left.jpg",
                     "resources/objects/skybox/bottom.jpg",
                     "resources/objects/skybox/top.jpg",
-                    "resources/objects/skybox/front.jpg",ds
+                    "resources/objects/skybox/front.jpg",
                     "resources/objects/skybox/back.jpg"
             };
     unsigned int cubemapTexture = loadCubemap(skyboxImages);
@@ -514,36 +515,55 @@ int main() {
         ourShader.setFloat("spotLight[2].outerCutOff", glm::cos(glm::radians(40.0f)));
 
         float near_plane = 1.0f;
-        float far_plane  = 25.0f;
+        float far_plane  = 10.0f;
 
-        /*
-        shadowShader.use();
-        glm::mat4 shadowProj = glm::perspective(glm::radians(90.0f), (float)SHADOW_WIDTH / (float)SHADOW_HEIGHT, near_plane, far_plane);
-        std::vector<glm::mat4> shadowTransforms;
-        for (int i = 0; i < 3; i++) {
-            // 0. create depth cube map transformation matrices
-            // ------------------------------------------------
-            shadowTransforms.clear();
-            shadowTransforms.push_back(shadowProj * glm::lookAt(programState->pointLightPositions[i], programState->pointLightPositions[i] + glm::vec3( 1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)));
-            shadowTransforms.push_back(shadowProj * glm::lookAt(programState->pointLightPositions[i], programState->pointLightPositions[i] + glm::vec3(-1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)));
-            shadowTransforms.push_back(shadowProj * glm::lookAt(programState->pointLightPositions[i], programState->pointLightPositions[i] + glm::vec3( 0.0f,  1.0f,  0.0f), glm::vec3(0.0f,  0.0f,  1.0f)));
-            shadowTransforms.push_back(shadowProj * glm::lookAt(programState->pointLightPositions[i], programState->pointLightPositions[i] + glm::vec3( 0.0f, -1.0f,  0.0f), glm::vec3(0.0f,  0.0f, -1.0f)));
-            shadowTransforms.push_back(shadowProj * glm::lookAt(programState->pointLightPositions[i], programState->pointLightPositions[i] + glm::vec3( 0.0f,  0.0f,  1.0f), glm::vec3(0.0f, -1.0f,  0.0f)));
-            shadowTransforms.push_back(shadowProj * glm::lookAt(programState->pointLightPositions[i], programState->pointLightPositions[i] + glm::vec3( 0.0f,  0.0f, -1.0f), glm::vec3(0.0f, -1.0f,  0.0f)));
+        if (shadows) {
+            glm::mat4 shadowProj = glm::perspective(glm::radians(90.0f), (float) SHADOW_WIDTH / (float) SHADOW_HEIGHT,
+                                                    near_plane, far_plane);
+            std::vector<glm::mat4> shadowTransforms;
+            for (int i = 0; i < 3; i++) {
+                // 0. create depth cube map transformation matrices
+                // ------------------------------------------------
+                shadowTransforms.clear();
+                shadowTransforms.push_back(shadowProj * glm::lookAt(programState->pointLightPositions[i],
+                                                                    programState->pointLightPositions[i] +
+                                                                    glm::vec3(1.0f, 0.0f, 0.0f),
+                                                                    glm::vec3(0.0f, -1.0f, 0.0f)));
+                shadowTransforms.push_back(shadowProj * glm::lookAt(programState->pointLightPositions[i],
+                                                                    programState->pointLightPositions[i] +
+                                                                    glm::vec3(-1.0f, 0.0f, 0.0f),
+                                                                    glm::vec3(0.0f, -1.0f, 0.0f)));
+                shadowTransforms.push_back(shadowProj * glm::lookAt(programState->pointLightPositions[i],
+                                                                    programState->pointLightPositions[i] +
+                                                                    glm::vec3(0.0f, 1.0f, 0.0f),
+                                                                    glm::vec3(0.0f, 0.0f, 1.0f)));
+                shadowTransforms.push_back(shadowProj * glm::lookAt(programState->pointLightPositions[i],
+                                                                    programState->pointLightPositions[i] +
+                                                                    glm::vec3(0.0f, -1.0f, 0.0f),
+                                                                    glm::vec3(0.0f, 0.0f, -1.0f)));
+                shadowTransforms.push_back(shadowProj * glm::lookAt(programState->pointLightPositions[i],
+                                                                    programState->pointLightPositions[i] +
+                                                                    glm::vec3(0.0f, 0.0f, 1.0f),
+                                                                    glm::vec3(0.0f, -1.0f, 0.0f)));
+                shadowTransforms.push_back(shadowProj * glm::lookAt(programState->pointLightPositions[i],
+                                                                    programState->pointLightPositions[i] +
+                                                                    glm::vec3(0.0f, 0.0f, -1.0f),
+                                                                    glm::vec3(0.0f, -1.0f, 0.0f)));
 
-            // Render scene to depth cube map
-            // ---------------------------------
-            glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
-            glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
-            glClear(GL_DEPTH_BUFFER_BIT);
-            for (unsigned int i = 0; i < 6; ++i)
-                shadowShader.setMat4("shadowMatrices[" + std::to_string(i) + "]", shadowTransforms[i]);
-            shadowShader.setFloat("far_plane", far_plane);
-            shadowShader.setVec3("lightPos", programState->pointLightPositions[i]);
-            renderScene(shadowShader, models);
-            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+                // Render scene to depth cube map
+                // ---------------------------------
+                glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
+                glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+                glClear(GL_DEPTH_BUFFER_BIT);
+                shadowShader.use();
+                for (unsigned int i = 0; i < 6; ++i)
+                    shadowShader.setMat4("shadowMatrices[" + std::to_string(i) + "]", shadowTransforms[i]);
+                shadowShader.setFloat("far_plane", far_plane);
+                shadowShader.setVec3("lightPos", programState->pointLightPositions[i]);
+                renderScene(shadowShader, models);
+                glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            }
         }
-         */
 
         ourShader.use();
 
@@ -560,12 +580,13 @@ int main() {
         ourShader.use();
         ourShader.setFloat("far_plane", far_plane);
         ourShader.setInt("depthMap", 1);
+        ourShader.setBool("shadow_flag", shadows);
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_CUBE_MAP, depthCubemap);
 
         // Render the loaded models //
         renderScene(ourShader, models);
-        
+
         // Draw Skybox
         glDepthFunc(GL_LEQUAL);
         skyboxShader.use();
@@ -615,7 +636,7 @@ int main() {
         glBindVertexArray(0);
         cout << "exposure: " << exposure << endl;
          */
-        
+
         if (programState->ImGuiEnabled)
             DrawImGui(programState);
 
@@ -763,6 +784,9 @@ void processInput(GLFWwindow *window) {
         exposure = max(0.0, exposure-0.1);
     if (glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS)
         exposure = min(1.0, exposure+0.1);
+
+    if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS)
+        shadows = !shadows;
 }
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes

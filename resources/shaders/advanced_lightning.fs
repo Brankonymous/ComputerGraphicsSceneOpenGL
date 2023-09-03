@@ -51,18 +51,9 @@ uniform Material material;
 uniform vec3 cameraPos;
 uniform vec3 viewPosition;
 
+uniform bool shadow_flag;
 uniform float far_plane;
 uniform samplerCube depthMap;
-
-// array of offset direction for sampling
-vec3 gridSamplingDisk[20] = vec3[]
-(
-   vec3(1, 1,  1), vec3( 1, -1,  1), vec3(-1, -1,  1), vec3(-1, 1,  1),
-   vec3(1, 1, -1), vec3( 1, -1, -1), vec3(-1, -1, -1), vec3(-1, 1, -1),
-   vec3(1, 1,  0), vec3( 1, -1,  0), vec3(-1, -1,  0), vec3(-1, 1,  0),
-   vec3(1, 0,  1), vec3(-1,  0,  1), vec3( 1,  0, -1), vec3(-1, 0, -1),
-   vec3(0, 1,  1), vec3( 0, -1,  1), vec3( 0, -1, -1), vec3( 0, 1, -1)
-);
 
 // calculates the color when using a point light.
 vec3 CalcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir, float shadow)
@@ -112,15 +103,17 @@ vec3 CalcSpotLight(SpotLight light, vec3 normal, vec3 fragPos, vec3 viewDir, flo
  }
 
  float CalcShadow(vec3 fragPos, int depthMapId, vec3 lightPosition) {
+
     vec3 fragToLight = fragPos - lightPosition;
     float shadow = 0.0;
-    float bias = 0.1;
-    float samples = 15.0;
-    float offset = 0.25;
+    float bias = 0.01;
+    float samples = 10.0;
+    float offset = 0.15;
     for(float x = -offset; x < offset; x += offset / (samples * 0.5)) {
      for(float y = -offset; y < offset; y += offset / (samples * 0.5)) {
          for(float z = -offset; z < offset; z += offset / (samples * 0.5)) {
              float closestDepth = texture(depthMap, fragToLight + vec3(x, y, z) * 0.05).r;
+
              closestDepth *= far_plane;
              if(length(fragToLight) - bias > closestDepth)
              shadow += 1.0;
@@ -140,9 +133,13 @@ void main()
     vec3 result = vec3(0,0,0);
 
     for(int i = 0; i < NUM_LIGHTS; i++){
-        float pointLightShadow = 1.0; // CalcShadow(FragPos, i, pointLight[i].position);
-        float spotLightShadow = 0.0; // CalcShadow(FragPos, i, spotLight[i].position);
+        float pointLightShadow = 1.0;
+        float spotLightShadow = 1.0;
 
+        if (shadow_flag) {
+            pointLightShadow = CalcShadow(FragPos, i, pointLight[i].position);
+            spotLightShadow = CalcShadow(FragPos, i, spotLight[i].position);
+        }
         vec3 pointLightColor = CalcPointLight(pointLight[i], normal, FragPos, viewDir, pointLightShadow);
         vec3 spotLightColor = CalcSpotLight(spotLight[i],normal,FragPos,viewDir, spotLightShadow);
 
