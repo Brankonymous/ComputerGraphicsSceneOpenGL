@@ -1,9 +1,10 @@
 # Project Description
 Project for Computer Graphics course
 
-![Image1](https://i.ibb.co/BwNYBVx/Whats-App-Image-2023-09-03-at-8-09-01-PM.jpg) | +![Image2](https://i.ibb.co/X4Dgz0c/Whats-App-Image-2023-09-03-at-8-09-01-PM-2.jpg)
+![Image1](https://i.ibb.co/pzKkjVd/MACA.png)
+![Image2](https://i.ibb.co/3dpJk3t/Screenshot-from-2023-09-03-20-46-16.png)
 
-#Implemented
+# Implemented
 - Blending, Face Culling, Advanced (Blinn-Phong) Lightning - Pointlight and Spotlight
 - Group A: Skybox
 - Group B: Point Shadows
@@ -17,5 +18,11 @@ Clone repository and run src/main.cpp
 - Move: (in comparison to world coordinates): **TGHF**
 - Shadow flag (turned on by default): **L**
 
+# Video
+  [Youtube video](https://youtu.be/Yq2hZLgK9tE)
+  <br>
+_NOTES_:
+  Video is recorded via phone because shadows causes lags.
+  
 # Credits
   [LearnOpenGL](https://learnopengl.com/)
