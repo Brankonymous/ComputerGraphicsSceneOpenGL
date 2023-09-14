@@ -14,12 +14,6 @@ Project for Computer Graphics course
 - Move: (in comparison to camera): **WASD**
 - Move: (in comparison to world coordinates): **TGHF**
 - Shadow flag (turned on by default): **L**
-
-# Video
-  [Youtube video](https://youtu.be/Yq2hZLgK9tE)
-  <br>
-_NOTES_:
-  Video is recorded via phone because shadows causes lags.
   
 # Credits
   [LearnOpenGL](https://learnopengl.com/)
